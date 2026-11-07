@@ -19,6 +19,7 @@ import {
 } from './utils/xiangqiRules';
 import { soundManager } from './utils/audio';
 import { getOpeningNodeForMoves, type OpeningNode } from './utils/openingEngine';
+import { analyzePosition, type EngineAnalysis } from './utils/aiEngine';
 import { ChessBoard } from './components/ChessBoard';
 import { PlayerCard } from './components/PlayerCard';
 import { MoveHistory } from './components/MoveHistory';
@@ -524,17 +525,31 @@ export const App: React.FC = () => {
     return getOpeningNodeForMoves(playedMoves);
   }, [isAdvisorEnabled, playedMoves]);
 
-  // Hint Move (only active if it is current turn's turn)
+  // Real-time AI Engine Analysis (calculates best move, eval, depth, and PV line)
+  const engineAnalysis: EngineAnalysis | null = useMemo(() => {
+    if (!isAdvisorEnabled) return null;
+    return analyzePosition(board, turn, 4);
+  }, [board, turn, isAdvisorEnabled]);
+
+  // Hint Move (Grandmaster 20-Move Book priority, AI Engine calculated best move fallback)
   const hintMove = useMemo(() => {
-    if (!isAdvisorEnabled || !currentOpeningNode) return null;
-    if (currentOpeningNode.turn === turn) {
+    if (!isAdvisorEnabled) return null;
+    // 1. If in Grandmaster 20-move Book and matching current turn, use Book move!
+    if (currentOpeningNode && currentOpeningNode.turn === turn) {
       return {
         from: currentOpeningNode.recommendedMove.from,
         to: currentOpeningNode.recommendedMove.to,
       };
     }
+    // 2. If off-book or past book, use AI Engine Best Move!
+    if (engineAnalysis?.bestMove) {
+      return {
+        from: engineAnalysis.bestMove.from,
+        to: engineAnalysis.bestMove.to,
+      };
+    }
     return null;
-  }, [isAdvisorEnabled, currentOpeningNode, turn]);
+  }, [isAdvisorEnabled, currentOpeningNode, turn, engineAnalysis]);
 
   // Execute recommended or candidate move from Advisor
   const handlePlayOpeningMove = useCallback(
@@ -742,6 +757,7 @@ export const App: React.FC = () => {
             <div className="absolute top-14 z-30 animate-fade-in shadow-2xl px-2 max-w-lg w-full">
               <OpeningAdvisor
                 currentNode={currentOpeningNode}
+                engineAnalysis={engineAnalysis}
                 isEnabled={isAdvisorEnabled}
                 onToggleEnabled={() => setIsAdvisorEnabled(prev => !prev)}
                 onPlayMove={handlePlayOpeningMove}
@@ -878,9 +894,10 @@ export const App: React.FC = () => {
 
             {/* Right Sidebar: Controls, Opening Advisor & Move History (5 or 4 columns on desktop) */}
             <div className="lg:col-span-5 xl:col-span-4 flex flex-col space-y-3.5 h-full">
-              {/* Opening Advisor (Trợ Lý Khai Cuộc Từng Nước & Cây Quyết Định) */}
+              {/* Opening Advisor (Trợ Lý Khai Cuộc 20 Nước & AI Engine) */}
               <OpeningAdvisor
                 currentNode={currentOpeningNode}
+                engineAnalysis={engineAnalysis}
                 isEnabled={isAdvisorEnabled}
                 onToggleEnabled={() => setIsAdvisorEnabled(prev => !prev)}
                 onPlayMove={handlePlayOpeningMove}
