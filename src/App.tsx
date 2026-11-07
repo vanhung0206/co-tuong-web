@@ -23,7 +23,9 @@ import { PlayerCard } from './components/PlayerCard';
 import { MoveHistory } from './components/MoveHistory';
 import { GameControls } from './components/GameControls';
 import { GameOverModal } from './components/GameOverModal';
-import { Swords, HelpCircle, Maximize, Minimize } from 'lucide-react';
+import { OpeningTrainerModal } from './components/OpeningTrainerModal';
+import type { OpeningVariation } from './data/openings';
+import { Swords, HelpCircle, Maximize, Minimize, BookOpen } from 'lucide-react';
 
 interface HistorySnapshot {
   board: Board;
@@ -67,6 +69,7 @@ export const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [showGameOverModal, setShowGameOverModal] = useState<boolean>(false);
   const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
+  const [isOpeningModalOpen, setIsOpeningModalOpen] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // Sync fullscreen state
@@ -395,6 +398,71 @@ export const App: React.FC = () => {
     soundManager.playTap();
   }, [history]);
 
+  // Apply opening variation steps to main game board
+  const handleApplyVariationToBoard = useCallback(
+    (variation: OpeningVariation, upToStep: number) => {
+      let curBoard = createInitialBoard();
+      let curTurn: PieceColor = 'red';
+      const newHistory: HistorySnapshot[] = [
+        {
+          board: curBoard,
+          turn: 'red',
+          move: null,
+          capturedRed: [],
+          capturedBlack: [],
+        },
+      ];
+
+      const stepsToPlay = variation.steps.slice(0, upToStep);
+      for (const st of stepsToPlay) {
+        const movingPiece = curBoard[st.from.r][st.from.c];
+        if (!movingPiece) break;
+        const destPiece = curBoard[st.to.r][st.to.c];
+
+        const nextBoard = cloneBoard(curBoard);
+        nextBoard[st.to.r][st.to.c] = movingPiece;
+        nextBoard[st.from.r][st.from.c] = null;
+
+        const nextTurn: PieceColor = movingPiece.color === 'red' ? 'black' : 'red';
+        const inCheck = isKingInCheck(nextBoard, nextTurn);
+
+        const moveRecord: Move = {
+          from: st.from,
+          to: st.to,
+          piece: movingPiece,
+          captured: destPiece,
+          notation: st.notation,
+          isCheck: inCheck,
+        };
+
+        newHistory.push({
+          board: nextBoard,
+          turn: nextTurn,
+          move: moveRecord,
+          capturedRed: [],
+          capturedBlack: [],
+        });
+
+        curBoard = nextBoard;
+        curTurn = nextTurn;
+      }
+
+      setBoard(curBoard);
+      setTurn(curTurn);
+      setCapturedRed([]);
+      setCapturedBlack([]);
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+      setSelectedPos(null);
+      setValidMoves([]);
+      setGameStatus('playing');
+      setWinner(null);
+      setShowGameOverModal(false);
+      soundManager.playMove();
+    },
+    []
+  );
+
   // Extract all moves for MoveHistory component
   const moveList: Move[] = history
     .slice(1)
@@ -426,6 +494,16 @@ export const App: React.FC = () => {
               Chế độ Luyện Tự Do
             </span>
           )}
+
+          {/* Opening Book Trainer Button */}
+          <button
+            onClick={() => setIsOpeningModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-amber-600/30 to-red-600/30 hover:from-amber-600/45 hover:to-red-600/45 text-amber-200 border border-amber-500/50 shadow-md transition-all active:scale-95"
+            title="Bí phổ khai cuộc Trung Pháo và cẩm nang phản đòn"
+          >
+            <BookOpen className="w-4 h-4 text-amber-400" />
+            <span className="hidden sm:inline">Bí Phổ Khai Cuộc</span>
+          </button>
 
           {/* Fullscreen Button */}
           <button
@@ -535,6 +613,13 @@ export const App: React.FC = () => {
             <p className="leading-relaxed">
               Bạn có thể bật <strong>"Luyện Tự Do"</strong> để tùy ý điều động quân cả 2 bên thử nghiệm khai cuộc, hoặc bấm vào bất kỳ nước cờ nào trong <strong>Biên Bản</strong> để quay ngược thời gian xem lại các nhánh đi khác.
             </p>
+            <button
+              onClick={() => setIsOpeningModalOpen(true)}
+              className="mt-2 w-full py-1.5 px-2.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              Mở Cẩm Nang Khai Cuộc Trung Pháo
+            </button>
           </div>
         </div>
       </main>
@@ -556,6 +641,13 @@ export const App: React.FC = () => {
         winner={winner}
         onNewGame={handleNewGame}
         onClose={() => setShowGameOverModal(false)}
+      />
+
+      {/* Opening Book Trainer Modal */}
+      <OpeningTrainerModal
+        isOpen={isOpeningModalOpen}
+        onClose={() => setIsOpeningModalOpen(false)}
+        onApplyVariationToBoard={handleApplyVariationToBoard}
       />
 
       {/* Help / Rules Modal */}
