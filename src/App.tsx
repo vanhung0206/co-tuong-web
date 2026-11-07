@@ -25,7 +25,18 @@ import { GameControls } from './components/GameControls';
 import { GameOverModal } from './components/GameOverModal';
 import { OpeningTrainerModal } from './components/OpeningTrainerModal';
 import type { OpeningVariation } from './data/openings';
-import { Swords, HelpCircle, Maximize, Minimize, BookOpen } from 'lucide-react';
+import { 
+  Swords, 
+  HelpCircle, 
+  Maximize, 
+  Minimize, 
+  BookOpen, 
+  RotateCcw, 
+  ArrowLeftRight, 
+  Volume2, 
+  VolumeX, 
+  Play 
+} from 'lucide-react';
 
 interface HistorySnapshot {
   board: Board;
@@ -75,21 +86,51 @@ export const App: React.FC = () => {
   // Sync fullscreen state
   useEffect(() => {
     const handleFsChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      if (!document.fullscreenElement) {
+        setIsFullscreen(false);
+      } else {
+        setIsFullscreen(true);
+      }
     };
     document.addEventListener('fullscreenchange', handleFsChange);
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
 
+  // Listen for Esc key to exit fullscreen even if browser native fullscreen wasn't active
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
+
   const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+    if (!isFullscreen) {
+      setIsFullscreen(true);
+      try {
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+      } catch {
+        // Fallback to in-app Zen fullscreen
+      }
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
+      try {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      } catch {
+        // Fallback
       }
     }
-  }, []);
+  }, [isFullscreen]);
 
   // Game Status
   const [gameStatus, setGameStatus] = useState<GameStatus>('playing');
@@ -471,168 +512,272 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-radial from-[#1e1c19] via-[#141416] to-[#0a0a0c] text-stone-200 flex flex-col justify-between py-3 px-2 sm:px-4 md:px-6">
-      {/* Top Header */}
-      <header className="max-w-7xl w-full mx-auto flex items-center justify-between pb-3 border-b border-stone-800/80">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-600 to-red-600 flex items-center justify-center font-calligraphy text-xl font-black text-amber-100 shadow-md shadow-amber-900/40 border border-amber-400/40">
-            棋
-          </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-black tracking-wide font-cinzel text-amber-100 flex items-center gap-2">
-              KỲ ĐẠO <span className="text-amber-500 font-sans text-xs px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 font-normal">Cờ Tướng 2 Người</span>
-            </h1>
-            <p className="text-[11px] text-stone-400">
-              Trang Luyện Cờ Cá Nhân & Song Đấu Trực Tiếp
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Free Mode badge if active */}
-          {isFreeMode && (
-            <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-              Chế độ Luyện Tự Do
-            </span>
-          )}
-
-          {/* Opening Book Trainer Button */}
-          <button
-            onClick={() => setIsOpeningModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-amber-600/30 to-red-600/30 hover:from-amber-600/45 hover:to-red-600/45 text-amber-200 border border-amber-500/50 shadow-md transition-all active:scale-95"
-            title="Bí phổ khai cuộc Trung Pháo và cẩm nang phản đòn"
-          >
-            <BookOpen className="w-4 h-4 text-amber-400" />
-            <span className="hidden sm:inline">Bí Phổ Khai Cuộc</span>
-          </button>
-
-          {/* Fullscreen Button */}
-          <button
-            onClick={toggleFullscreen}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
-              isFullscreen
-                ? 'bg-amber-600/30 border-amber-500 text-amber-300'
-                : 'bg-stone-900 hover:bg-stone-800 text-stone-300 border-stone-800'
-            }`}
-            title={isFullscreen ? 'Thu nhỏ (Esc)' : 'Toàn màn hình'}
-          >
-            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4 text-amber-400" />}
-            <span className="hidden sm:inline">{isFullscreen ? 'Thu Nhỏ' : 'Toàn Màn Hình'}</span>
-          </button>
-
-          {/* Quick Help */}
-          <button
-            onClick={() => setShowHelpModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-800 transition-colors"
-            title="Hướng dẫn luật cờ"
-          >
-            <HelpCircle className="w-4 h-4 text-amber-400" />
-            <span className="hidden sm:inline">Luật Cờ</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Main Game Arena */}
-      <main className="max-w-7xl w-full mx-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start my-4">
-        {/* Left / Center Area: Board & Player Cards (7 or 8 columns on desktop) */}
-        <div className="lg:col-span-7 xl:col-span-8 flex flex-col items-center justify-center space-y-3">
-          {/* Top Player Card (Black when normal, Red when flipped) */}
-          <div className="w-full max-w-[620px]">
-            <PlayerCard
-              color={isFlipped ? 'red' : 'black'}
-              isCurrentTurn={turn === (isFlipped ? 'red' : 'black')}
-              isInCheck={gameStatus === 'check' && turn === (isFlipped ? 'red' : 'black')}
-              timeLeft={settings.timerMinutes > 0 ? (isFlipped ? redTime : blackTime) : null}
-              capturedPieces={isFlipped ? capturedRed : capturedBlack}
-              theme={settings.theme}
-            />
-          </div>
-
-          {/* Xiangqi Chess Board */}
-          <ChessBoard
-            board={board}
-            selectedPos={selectedPos}
-            validMoves={validMoves}
-            lastMove={lastMove}
-            kingInCheckPos={kingInCheckPos}
-            isFlipped={isFlipped}
-            theme={settings.theme}
-            showViSubtitle={false}
-            onSquareClick={handleSquareClick}
-          />
-
-          {/* Bottom Player Card (Red when normal, Black when flipped) */}
-          <div className="w-full max-w-[620px]">
-            <PlayerCard
-              color={isFlipped ? 'black' : 'red'}
-              isCurrentTurn={turn === (isFlipped ? 'black' : 'red')}
-              isInCheck={gameStatus === 'check' && turn === (isFlipped ? 'black' : 'red')}
-              timeLeft={settings.timerMinutes > 0 ? (isFlipped ? blackTime : redTime) : null}
-              capturedPieces={isFlipped ? capturedBlack : capturedRed}
-              theme={settings.theme}
-            />
-          </div>
-        </div>
-
-        {/* Right Sidebar: Controls & Move History (5 or 4 columns on desktop) */}
-        <div className="lg:col-span-5 xl:col-span-4 flex flex-col space-y-3.5 h-full">
-          {/* Control Actions Bar */}
-          <GameControls
-            canUndo={historyIndex > 0}
-            canRedo={historyIndex < history.length - 1}
-            isFlipped={isFlipped}
-            isFreeMode={isFreeMode}
-            isFullscreen={isFullscreen}
-            settings={settings}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onFlipBoard={() => setIsFlipped(prev => !prev)}
-            onNewGame={handleNewGame}
-            onToggleFreeMode={() => setIsFreeMode(prev => !prev)}
-            onToggleFullscreen={toggleFullscreen}
-            onUpdateSettings={newS => setSettings(prev => ({ ...prev, ...newS }))}
-            isSettingsOpen={isSettingsOpen}
-            setIsSettingsOpen={setIsSettingsOpen}
-          />
-
-          {/* Move History */}
-          <div className="flex-1 min-h-[320px]">
-            <MoveHistory
-              moves={moveList}
-              currentMoveIndex={historyIndex - 1}
-              onSelectMove={handleSelectHistoryMove}
-              onResetToCurrent={handleResetToCurrent}
-            />
-          </div>
-
-          {/* Tactical Practice Tip Box */}
-          <div className="p-3 bg-stone-900/60 rounded-xl border border-stone-800/80 text-xs text-stone-400 space-y-1.5 backdrop-blur-xs">
-            <div className="flex items-center gap-1.5 text-amber-400 font-bold">
-              <Swords className="w-3.5 h-3.5" />
-              <span>Bí Quyết Luyện Cờ Cá Nhân</span>
+      {isFullscreen ? (
+        /* Fullscreen Zen View: ONLY THE CHESSBOARD + MINIMAL FLOATING CONTROLS */
+        <div className="fixed inset-0 z-50 bg-[#0a0b0e] flex flex-col items-center justify-between p-2 sm:p-4 select-none overflow-hidden animate-fade-in">
+          {/* Minimal Floating Top Bar */}
+          <div className="w-full max-w-4xl flex items-center justify-between px-3.5 py-1.5 rounded-full bg-stone-900/85 backdrop-blur-md border border-stone-800 shadow-2xl text-xs z-20">
+            {/* Current Turn indicator */}
+            <div className="flex items-center gap-2.5">
+              <span
+                className={`inline-block w-3.5 h-3.5 rounded-full ${
+                  turn === 'red'
+                    ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.9)]'
+                    : 'bg-stone-300 shadow-[0_0_10px_rgba(255,255,255,0.7)]'
+                }`}
+              />
+              <span className="font-bold text-stone-200">
+                Lượt:{' '}
+                <span className={turn === 'red' ? 'text-red-400 font-extrabold' : 'text-stone-300 font-extrabold'}>
+                  {turn === 'red' ? 'Quân Đỏ (Tiên)' : 'Quân Đen (Hậu)'}
+                </span>
+              </span>
+              {gameStatus === 'check' && (
+                <span className="px-2.5 py-0.5 rounded-full bg-red-600/30 text-red-400 border border-red-500/50 font-bold animate-pulse text-[11px]">
+                  CHIẾU TƯỚNG!
+                </span>
+              )}
             </div>
-            <p className="leading-relaxed">
-              Bạn có thể bật <strong>"Luyện Tự Do"</strong> để tùy ý điều động quân cả 2 bên thử nghiệm khai cuộc, hoặc bấm vào bất kỳ nước cờ nào trong <strong>Biên Bản</strong> để quay ngược thời gian xem lại các nhánh đi khác.
-            </p>
-            <button
-              onClick={() => setIsOpeningModalOpen(true)}
-              className="mt-2 w-full py-1.5 px-2.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              Mở Cẩm Nang Khai Cuộc Trung Pháo
-            </button>
+
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleNewGame}
+                className="px-2.5 py-1 rounded-lg bg-red-700/80 hover:bg-red-600 text-amber-100 flex items-center gap-1.5 text-xs font-semibold transition-all border border-red-500/50"
+                title="Bắt đầu ván mới"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span className="hidden sm:inline">Ván Mới</span>
+              </button>
+
+              <button
+                onClick={handleUndo}
+                disabled={historyIndex === 0}
+                className="px-2.5 py-1 rounded-lg bg-stone-800 hover:bg-stone-700 disabled:opacity-40 disabled:pointer-events-none text-stone-200 flex items-center gap-1.5 text-xs font-semibold transition-all border border-stone-700/60"
+                title="Rút lại nước vừa đi"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Hoàn Tác</span>
+              </button>
+
+              <button
+                onClick={() => setIsFlipped(prev => !prev)}
+                className="px-2.5 py-1 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 flex items-center gap-1.5 text-xs font-semibold transition-all border border-stone-700/60"
+                title="Đổi hướng nhìn bàn cờ"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Đổi Góc Nhìn</span>
+              </button>
+
+              <button
+                onClick={() => setSettings(s => ({ ...s, soundEnabled: !s.soundEnabled }))}
+                className="px-2.5 py-1 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 flex items-center gap-1.5 text-xs font-semibold transition-all border border-stone-700/60"
+                title={settings.soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
+              >
+                {settings.soundEnabled ? (
+                  <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                ) : (
+                  <VolumeX className="w-3.5 h-3.5 text-stone-500" />
+                )}
+                <span className="hidden sm:inline">{settings.soundEnabled ? 'Âm Thanh' : 'Tắt Tiếng'}</span>
+              </button>
+
+              <button
+                onClick={toggleFullscreen}
+                className="px-3 py-1 rounded-lg bg-amber-600/30 hover:bg-amber-600/40 text-amber-200 border border-amber-500/60 flex items-center gap-1.5 text-xs font-bold transition-all shadow-md active:scale-95"
+                title="Thoát chế độ toàn màn hình"
+              >
+                <Minimize className="w-4 h-4 text-amber-400" />
+                <span>Thoát Toàn Màn Hình</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Centered Large Board: ONLY THE CHESSBOARD */}
+          <div className="flex-1 flex items-center justify-center w-full min-h-0 py-2 overflow-hidden">
+            <ChessBoard
+              board={board}
+              selectedPos={selectedPos}
+              validMoves={validMoves}
+              lastMove={lastMove}
+              kingInCheckPos={kingInCheckPos}
+              isFlipped={isFlipped}
+              theme={settings.theme}
+              showViSubtitle={false}
+              containerClassName="h-[min(87vh,calc(92vw*10/9))] aspect-[9/10] select-none p-2 sm:p-3 rounded-2xl bg-[#2a1d13] wood-board-shadow border-4 border-[#523317] shadow-2xl flex-shrink-0"
+              onSquareClick={handleSquareClick}
+            />
+          </div>
+
+          {/* Bottom subtle indicator */}
+          <div className="text-[11px] text-stone-500 flex items-center gap-3">
+            <span>Bấm <kbd className="px-1.5 py-0.5 rounded bg-stone-800 border border-stone-700 text-stone-300 font-mono text-[10px]">Esc</kbd> để thoát toàn màn hình</span>
+            <span>•</span>
+            <span>Nước cờ: <strong className="text-amber-400">{historyIndex}</strong></span>
           </div>
         </div>
-      </main>
+      ) : (
+        <>
+          {/* Top Header */}
+          <header className="max-w-7xl w-full mx-auto flex items-center justify-between pb-3 border-b border-stone-800/80">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-600 to-red-600 flex items-center justify-center font-calligraphy text-xl font-black text-amber-100 shadow-md shadow-amber-900/40 border border-amber-400/40">
+                棋
+              </div>
+              <div>
+                <h1 className="text-lg sm:text-xl font-black tracking-wide font-cinzel text-amber-100 flex items-center gap-2">
+                  KỲ ĐẠO <span className="text-amber-500 font-sans text-xs px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 font-normal">Cờ Tướng 2 Người</span>
+                </h1>
+                <p className="text-[11px] text-stone-400">
+                  Trang Luyện Cờ Cá Nhân & Song Đấu Trực Tiếp
+                </p>
+              </div>
+            </div>
 
-      {/* Footer */}
-      <footer className="max-w-7xl w-full mx-auto pt-3 border-t border-stone-800/60 text-center text-[11px] text-stone-500 flex flex-col sm:flex-row items-center justify-between gap-2">
-        <span>Kỳ Đạo © {new Date().getFullYear()} — Trang Web Cờ Tướng Cá Nhân Chuẩn Vercel</span>
-        <div className="flex items-center gap-3">
-          <span>Chuẩn luật Cờ Tướng Quốc Tế</span>
-          <span>•</span>
-          <span>Sẵn sàng Deploy Vercel</span>
-        </div>
-      </footer>
+            <div className="flex items-center gap-2">
+              {/* Free Mode badge if active */}
+              {isFreeMode && (
+                <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                  Chế độ Luyện Tự Do
+                </span>
+              )}
+
+              {/* Opening Book Trainer Button */}
+              <button
+                onClick={() => setIsOpeningModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-amber-600/30 to-red-600/30 hover:from-amber-600/45 hover:to-red-600/45 text-amber-200 border border-amber-500/50 shadow-md transition-all active:scale-95"
+                title="Bí phổ khai cuộc Trung Pháo và cẩm nang phản đòn"
+              >
+                <BookOpen className="w-4 h-4 text-amber-400" />
+                <span className="hidden sm:inline">Bí Phổ Khai Cuộc</span>
+              </button>
+
+              {/* Fullscreen Button */}
+              <button
+                onClick={toggleFullscreen}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-800 transition-colors"
+                title="Bật chế độ toàn màn hình"
+              >
+                <Maximize className="w-4 h-4 text-amber-400" />
+                <span className="hidden sm:inline">Toàn Màn Hình</span>
+              </button>
+
+              {/* Quick Help */}
+              <button
+                onClick={() => setShowHelpModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-800 transition-colors"
+                title="Hướng dẫn luật cờ"
+              >
+                <HelpCircle className="w-4 h-4 text-amber-400" />
+                <span className="hidden sm:inline">Luật Cờ</span>
+              </button>
+            </div>
+          </header>
+
+          {/* Main Game Arena */}
+          <main className="max-w-7xl w-full mx-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start my-4">
+            {/* Left / Center Area: Board & Player Cards (7 or 8 columns on desktop) */}
+            <div className="lg:col-span-7 xl:col-span-8 flex flex-col items-center justify-center space-y-3">
+              {/* Top Player Card (Black when normal, Red when flipped) */}
+              <div className="w-full max-w-[620px]">
+                <PlayerCard
+                  color={isFlipped ? 'red' : 'black'}
+                  isCurrentTurn={turn === (isFlipped ? 'red' : 'black')}
+                  isInCheck={gameStatus === 'check' && turn === (isFlipped ? 'red' : 'black')}
+                  timeLeft={settings.timerMinutes > 0 ? (isFlipped ? redTime : blackTime) : null}
+                  capturedPieces={isFlipped ? capturedRed : capturedBlack}
+                  theme={settings.theme}
+                />
+              </div>
+
+              {/* Xiangqi Chess Board */}
+              <ChessBoard
+                board={board}
+                selectedPos={selectedPos}
+                validMoves={validMoves}
+                lastMove={lastMove}
+                kingInCheckPos={kingInCheckPos}
+                isFlipped={isFlipped}
+                theme={settings.theme}
+                showViSubtitle={false}
+                onSquareClick={handleSquareClick}
+              />
+
+              {/* Bottom Player Card (Red when normal, Black when flipped) */}
+              <div className="w-full max-w-[620px]">
+                <PlayerCard
+                  color={isFlipped ? 'black' : 'red'}
+                  isCurrentTurn={turn === (isFlipped ? 'black' : 'red')}
+                  isInCheck={gameStatus === 'check' && turn === (isFlipped ? 'black' : 'red')}
+                  timeLeft={settings.timerMinutes > 0 ? (isFlipped ? blackTime : redTime) : null}
+                  capturedPieces={isFlipped ? capturedBlack : capturedRed}
+                  theme={settings.theme}
+                />
+              </div>
+            </div>
+
+            {/* Right Sidebar: Controls & Move History (5 or 4 columns on desktop) */}
+            <div className="lg:col-span-5 xl:col-span-4 flex flex-col space-y-3.5 h-full">
+              {/* Control Actions Bar */}
+              <GameControls
+                canUndo={historyIndex > 0}
+                canRedo={historyIndex < history.length - 1}
+                isFlipped={isFlipped}
+                isFreeMode={isFreeMode}
+                isFullscreen={isFullscreen}
+                settings={settings}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+                onFlipBoard={() => setIsFlipped(prev => !prev)}
+                onNewGame={handleNewGame}
+                onToggleFreeMode={() => setIsFreeMode(prev => !prev)}
+                onToggleFullscreen={toggleFullscreen}
+                onUpdateSettings={newS => setSettings(prev => ({ ...prev, ...newS }))}
+                isSettingsOpen={isSettingsOpen}
+                setIsSettingsOpen={setIsSettingsOpen}
+              />
+
+              {/* Move History */}
+              <div className="flex-1 min-h-[320px]">
+                <MoveHistory
+                  moves={moveList}
+                  currentMoveIndex={historyIndex - 1}
+                  onSelectMove={handleSelectHistoryMove}
+                  onResetToCurrent={handleResetToCurrent}
+                />
+              </div>
+
+              {/* Tactical Practice Tip Box */}
+              <div className="p-3 bg-stone-900/60 rounded-xl border border-stone-800/80 text-xs text-stone-400 space-y-1.5 backdrop-blur-xs">
+                <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+                  <Swords className="w-3.5 h-3.5" />
+                  <span>Bí Quyết Luyện Cờ Cá Nhân</span>
+                </div>
+                <p className="leading-relaxed">
+                  Bạn có thể bật <strong>"Luyện Tự Do"</strong> để tùy ý điều động quân cả 2 bên thử nghiệm khai cuộc, hoặc bấm vào bất kỳ nước cờ nào trong <strong>Biên Bản</strong> để quay ngược thời gian xem lại các nhánh đi khác.
+                </p>
+                <button
+                  onClick={() => setIsOpeningModalOpen(true)}
+                  className="mt-2 w-full py-1.5 px-2.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  Mở Cẩm Nang Khai Cuộc Trung Pháo
+                </button>
+              </div>
+            </div>
+          </main>
+
+          {/* Footer */}
+          <footer className="max-w-7xl w-full mx-auto pt-3 border-t border-stone-800/60 text-center text-[11px] text-stone-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span>Kỳ Đạo © {new Date().getFullYear()} — Trang Web Cờ Tướng Cá Nhân Chuẩn Vercel</span>
+            <div className="flex items-center gap-3">
+              <span>Chuẩn luật Cờ Tướng Quốc Tế</span>
+              <span>•</span>
+              <span>Sẵn sàng Deploy Vercel</span>
+            </div>
+          </footer>
+        </>
+      )}
 
       {/* Game Over Modal */}
       <GameOverModal

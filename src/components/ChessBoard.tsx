@@ -11,6 +11,7 @@ interface ChessBoardProps {
   isFlipped: boolean;
   theme: PieceTheme;
   showViSubtitle: boolean;
+  containerClassName?: string;
   onSquareClick: (pos: Position) => void;
 }
 
@@ -23,6 +24,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   isFlipped,
   theme,
   showViSubtitle,
+  containerClassName,
   onSquareClick,
 }) => {
   // Convert logical (r, c) to visual position percentages
@@ -89,7 +91,12 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   const blackCols = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
   return (
-    <div className="relative w-full max-w-[620px] aspect-[9/10] mx-auto select-none p-2 sm:p-3 rounded-2xl bg-[#2a1d13] wood-board-shadow border-4 border-[#523317]">
+    <div
+      className={
+        containerClassName ||
+        'relative w-full max-w-[620px] aspect-[9/10] mx-auto select-none p-2 sm:p-3 rounded-2xl bg-[#2a1d13] wood-board-shadow border-4 border-[#523317]'
+      }
+    >
       {/* Outer wooden bevel framing */}
       <div className="relative w-full h-full rounded-xl overflow-hidden bg-gradient-to-br from-[#deb881] via-[#d09e63] to-[#bc8347] shadow-inner">
         {/* Subtle wood grain texture overlay */}
