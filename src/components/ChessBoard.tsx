@@ -255,36 +255,43 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                     top: coords.top,
                     transform: 'translate(-50%, -50%)',
                     width: '9.4%',
-                    height: '8.4%',
+                    height: '8.46%',
                   }}
                   onClick={() => onSquareClick({ r, c })}
-                  className="flex items-center justify-center cursor-pointer group"
+                  className="relative flex items-center justify-center cursor-pointer group select-none"
                 >
                   {/* Subtle target hotspot for clicking empty intersections */}
                   <div className="absolute inset-0 rounded-full group-hover:bg-amber-500/10 transition-colors pointer-events-none" />
 
                   {/* Last Move origin highlight */}
                   {isLastOrigin && !piece && (
-                    <div className="absolute w-7 h-7 rounded-full border-2 border-amber-500/60 bg-amber-400/15 animate-pulse" />
+                    <div className="absolute w-7 h-7 rounded-full border-2 border-amber-500/60 bg-amber-400/15 animate-pulse pointer-events-none" />
                   )}
 
-                  {/* Valid move target dots */}
-                  {isValidMove && (
-                    <div
-                      className={`
-                        z-20 rounded-full transition-all duration-150
-                        ${
-                          piece
-                            ? 'w-full h-full border-3 border-red-500 bg-red-500/25 animate-ping'
-                            : 'w-4 h-4 bg-emerald-700/80 ring-3 ring-emerald-400/90 shadow-md animate-pulse'
-                        }
-                      `}
-                    />
+                  {/* Empty square valid move dot */}
+                  {isValidMove && !piece && (
+                    <div className="absolute z-20 pointer-events-none flex items-center justify-center">
+                      <div className="w-4 h-4 rounded-full bg-emerald-600/90 ring-4 ring-emerald-400/50 shadow-[0_0_12px_rgba(52,211,153,0.8)] animate-pulse" />
+                    </div>
+                  )}
+
+                  {/* Occupied square valid capture target: Tactical Red Lock-on Reticle & Glow */}
+                  {isValidMove && piece && (
+                    <div className="absolute -inset-1.5 z-30 pointer-events-none flex items-center justify-center">
+                      {/* Pulsing red ring aura */}
+                      <div className="absolute inset-0 rounded-full border-2 border-red-500 bg-red-500/20 shadow-[0_0_18px_rgba(239,68,68,0.8)] animate-pulse" />
+                      
+                      {/* 4 Tactical Corner Brackets */}
+                      <div className="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-red-400 rounded-tl-sm" />
+                      <div className="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-red-400 rounded-tr-sm" />
+                      <div className="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-red-400 rounded-bl-sm" />
+                      <div className="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-red-400 rounded-br-sm" />
+                    </div>
                   )}
 
                   {/* The Chess Piece */}
                   {piece && (
-                    <div className="w-full h-full relative z-10">
+                    <div className="w-full h-full relative z-10 flex items-center justify-center">
                       <PieceComponent
                         piece={piece}
                         isSelected={isSelected}

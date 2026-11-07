@@ -23,7 +23,7 @@ import { PlayerCard } from './components/PlayerCard';
 import { MoveHistory } from './components/MoveHistory';
 import { GameControls } from './components/GameControls';
 import { GameOverModal } from './components/GameOverModal';
-import { Swords, HelpCircle } from 'lucide-react';
+import { Swords, HelpCircle, Maximize, Minimize } from 'lucide-react';
 
 interface HistorySnapshot {
   board: Board;
@@ -67,6 +67,26 @@ export const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [showGameOverModal, setShowGameOverModal] = useState<boolean>(false);
   const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // Sync fullscreen state
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+  }, []);
 
   // Game Status
   const [gameStatus, setGameStatus] = useState<GameStatus>('playing');
@@ -407,6 +427,20 @@ export const App: React.FC = () => {
             </span>
           )}
 
+          {/* Fullscreen Button */}
+          <button
+            onClick={toggleFullscreen}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+              isFullscreen
+                ? 'bg-amber-600/30 border-amber-500 text-amber-300'
+                : 'bg-stone-900 hover:bg-stone-800 text-stone-300 border-stone-800'
+            }`}
+            title={isFullscreen ? 'Thu nhỏ (Esc)' : 'Toàn màn hình'}
+          >
+            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4 text-amber-400" />}
+            <span className="hidden sm:inline">{isFullscreen ? 'Thu Nhỏ' : 'Toàn Màn Hình'}</span>
+          </button>
+
           {/* Quick Help */}
           <button
             onClick={() => setShowHelpModal(true)}
@@ -469,12 +503,14 @@ export const App: React.FC = () => {
             canRedo={historyIndex < history.length - 1}
             isFlipped={isFlipped}
             isFreeMode={isFreeMode}
+            isFullscreen={isFullscreen}
             settings={settings}
             onUndo={handleUndo}
             onRedo={handleRedo}
             onFlipBoard={() => setIsFlipped(prev => !prev)}
             onNewGame={handleNewGame}
             onToggleFreeMode={() => setIsFreeMode(prev => !prev)}
+            onToggleFullscreen={toggleFullscreen}
             onUpdateSettings={newS => setSettings(prev => ({ ...prev, ...newS }))}
             isSettingsOpen={isSettingsOpen}
             setIsSettingsOpen={setIsSettingsOpen}

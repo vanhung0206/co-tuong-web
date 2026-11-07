@@ -10,7 +10,9 @@ import {
   Settings, 
   Sparkles, 
   X,
-  Compass
+  Compass,
+  Maximize,
+  Minimize
 } from 'lucide-react';
 
 interface GameControlsProps {
@@ -18,12 +20,14 @@ interface GameControlsProps {
   canRedo: boolean;
   isFlipped: boolean;
   isFreeMode: boolean;
+  isFullscreen: boolean;
   settings: GameSettings;
   onUndo: () => void;
   onRedo: () => void;
   onFlipBoard: () => void;
   onNewGame: () => void;
   onToggleFreeMode: () => void;
+  onToggleFullscreen: () => void;
   onUpdateSettings: (settings: Partial<GameSettings>) => void;
   isSettingsOpen: boolean;
   setIsSettingsOpen: (open: boolean) => void;
@@ -33,12 +37,14 @@ export const GameControls: React.FC<GameControlsProps> = ({
   canUndo,
   canRedo,
   isFreeMode,
+  isFullscreen,
   settings,
   onUndo,
   onRedo,
   onFlipBoard,
   onNewGame,
   onToggleFreeMode,
+  onToggleFullscreen,
   onUpdateSettings,
   isSettingsOpen,
   setIsSettingsOpen,
@@ -120,6 +126,19 @@ export const GameControls: React.FC<GameControlsProps> = ({
             ) : (
               <VolumeX className="w-4 h-4 text-stone-500" />
             )}
+          </button>
+
+          {/* Fullscreen Toggle */}
+          <button
+            onClick={onToggleFullscreen}
+            className={`p-2 rounded-lg border transition-colors ${
+              isFullscreen
+                ? 'bg-amber-600/30 border-amber-500 text-amber-300'
+                : 'bg-stone-800 hover:bg-stone-700 text-stone-300 border-stone-700/60'
+            }`}
+            title={isFullscreen ? 'Thu nhỏ cửa sổ' : 'Toàn màn hình'}
+          >
+            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
           </button>
 
           {/* Settings Modal Open */}
