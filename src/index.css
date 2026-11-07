@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
+  }
+}
+
+.font-calligraphy {
+  font-family: 'Noto Serif SC', 'Ma Shan Zheng', serif;
+}
+
+.font-cinzel {
+  font-family: 'Cinzel', serif;
+}
+
+/* Wood Board & Piece Shadows */
+.wood-board-shadow {
+  box-shadow: 
+    0 30px 60px -15px rgba(0, 0, 0, 0.8),
+    0 0 0 2px rgba(212, 160, 84, 0.2),
+    inset 0 3px 6px rgba(255, 255, 255, 0.25),
+    inset 0 -5px 12px rgba(0, 0, 0, 0.6);
+}
+
+.piece-shadow {
+  box-shadow: 
+    0 8px 14px -2px rgba(0, 0, 0, 0.6),
+    0 3px 6px -1px rgba(0, 0, 0, 0.4),
+    inset 0 2px 2px rgba(255, 255, 255, 0.5),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.35);
+}
+
+.piece-selected-glow {
+  box-shadow: 
+    0 0 0 3px #fbbf24,
+    0 0 25px 6px rgba(245, 158, 11, 0.7),
+    0 12px 20px rgba(0, 0, 0, 0.7);
+  transform: translateY(-4px) scale(1.06);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(20, 22, 28, 0.6);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(180, 140, 80, 0.35);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(210, 165, 100, 0.65);
+}
