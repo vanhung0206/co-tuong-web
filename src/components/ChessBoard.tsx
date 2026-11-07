@@ -7,6 +7,7 @@ interface ChessBoardProps {
   selectedPos: Position | null;
   validMoves: Position[];
   lastMove: { from: Position; to: Position } | null;
+  hintMove?: { from: Position; to: Position } | null;
   kingInCheckPos: Position | null;
   isFlipped: boolean;
   theme: PieceTheme;
@@ -20,6 +21,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   selectedPos,
   validMoves,
   lastMove,
+  hintMove,
   kingInCheckPos,
   isFlipped,
   theme,
@@ -239,6 +241,56 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
               />
             );
           })()}
+
+          {/* Hint Move Path Glowing Arrow (Opening Advisor) */}
+          {hintMove && (() => {
+            const fromP = getCoords(hintMove.from.r, hintMove.from.c);
+            const toP = getCoords(hintMove.to.r, hintMove.to.c);
+            const fx = parseFloat(fromP.left) * 9;
+            const fy = parseFloat(fromP.top) * 10;
+            const tx = parseFloat(toP.left) * 9;
+            const ty = parseFloat(toP.top) * 10;
+            return (
+              <g className="hint-arrow-group pointer-events-none">
+                <defs>
+                  <marker
+                    id="hint-arrow"
+                    viewBox="0 0 10 10"
+                    refX="6"
+                    refY="5"
+                    markerWidth="6"
+                    markerHeight="6"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#10b981" />
+                  </marker>
+                </defs>
+                {/* Emerald halo line */}
+                <line
+                  x1={fx}
+                  y1={fy}
+                  x2={tx}
+                  y2={ty}
+                  stroke="#34d399"
+                  strokeWidth="6"
+                  opacity="0.35"
+                  strokeLinecap="round"
+                />
+                {/* Core line */}
+                <line
+                  x1={fx}
+                  y1={fy}
+                  x2={tx}
+                  y2={ty}
+                  stroke="#10b981"
+                  strokeWidth="3.5"
+                  strokeDasharray="8 4"
+                  strokeLinecap="round"
+                  markerEnd="url(#hint-arrow)"
+                />
+              </g>
+            );
+          })()}
         </svg>
 
         {/* Clickable Intersection Grid Points & Indicators */}
@@ -252,6 +304,8 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
               const isKingCheck = kingInCheckPos?.r === r && kingInCheckPos?.c === c;
               const isLastOrigin = lastMove?.from.r === r && lastMove?.from.c === c;
               const isLastTarget = lastMove?.to.r === r && lastMove?.to.c === c;
+              const isHintSource = hintMove?.from.r === r && hintMove?.from.c === c;
+              const isHintTarget = hintMove?.to.r === r && hintMove?.to.c === c;
 
               return (
                 <div
@@ -269,6 +323,20 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                 >
                   {/* Subtle target hotspot for clicking empty intersections */}
                   <div className="absolute inset-0 rounded-full group-hover:bg-amber-500/10 transition-colors pointer-events-none" />
+
+                  {/* Hint Move Target Square Highlight */}
+                  {isHintTarget && !piece && (
+                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
+                      <div className="w-8 h-8 rounded-full border-2 border-emerald-400 bg-emerald-500/25 shadow-[0_0_15px_rgba(52,211,153,0.9)] animate-pulse" />
+                    </div>
+                  )}
+
+                  {/* Hint Move Source Piece Glow & Badge */}
+                  {isHintSource && piece && (
+                    <div className="absolute -top-1.5 -right-1.5 z-30 pointer-events-none bg-emerald-500 text-stone-950 font-black text-[10px] w-5 h-5 rounded-full shadow-lg border border-emerald-300 flex items-center justify-center animate-bounce">
+                      <span>💡</span>
+                    </div>
+                  )}
 
                   {/* Last Move origin highlight */}
                   {isLastOrigin && !piece && (

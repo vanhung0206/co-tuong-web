@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { 
   Board, 
   GameSettings, 
@@ -18,12 +18,14 @@ import {
   getMoveNotation 
 } from './utils/xiangqiRules';
 import { soundManager } from './utils/audio';
+import { getOpeningNodeForMoves, type OpeningNode } from './utils/openingEngine';
 import { ChessBoard } from './components/ChessBoard';
 import { PlayerCard } from './components/PlayerCard';
 import { MoveHistory } from './components/MoveHistory';
 import { GameControls } from './components/GameControls';
 import { GameOverModal } from './components/GameOverModal';
 import { OpeningTrainerModal } from './components/OpeningTrainerModal';
+import { OpeningAdvisor } from './components/OpeningAdvisor';
 import type { OpeningVariation } from './data/openings';
 import { 
   Swords, 
@@ -35,7 +37,8 @@ import {
   ArrowLeftRight, 
   Volume2, 
   VolumeX, 
-  Play 
+  Play,
+  Lightbulb
 } from 'lucide-react';
 
 interface HistorySnapshot {
@@ -82,6 +85,8 @@ export const App: React.FC = () => {
   const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
   const [isOpeningModalOpen, setIsOpeningModalOpen] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isAdvisorEnabled, setIsAdvisorEnabled] = useState<boolean>(true);
+  const [isZenAdvisorOpen, setIsZenAdvisorOpen] = useState<boolean>(false);
 
   // Sync fullscreen state
   useEffect(() => {
@@ -504,6 +509,129 @@ export const App: React.FC = () => {
     []
   );
 
+  // Played moves so far in current game history
+  const playedMoves = useMemo(() => {
+    return history
+      .slice(1, historyIndex + 1)
+      .map(h => h.move)
+      .filter((m): m is Move => m !== null)
+      .map(m => ({ from: m.from, to: m.to }));
+  }, [history, historyIndex]);
+
+  // Current Opening Book Node
+  const currentOpeningNode: OpeningNode | null = useMemo(() => {
+    if (!isAdvisorEnabled) return null;
+    return getOpeningNodeForMoves(playedMoves);
+  }, [isAdvisorEnabled, playedMoves]);
+
+  // Hint Move (only active if it is current turn's turn)
+  const hintMove = useMemo(() => {
+    if (!isAdvisorEnabled || !currentOpeningNode) return null;
+    if (currentOpeningNode.turn === turn) {
+      return {
+        from: currentOpeningNode.recommendedMove.from,
+        to: currentOpeningNode.recommendedMove.to,
+      };
+    }
+    return null;
+  }, [isAdvisorEnabled, currentOpeningNode, turn]);
+
+  // Execute recommended or candidate move from Advisor
+  const handlePlayOpeningMove = useCallback(
+    (from: Position, to: Position) => {
+      const piece = board[from.r][from.c];
+      if (!piece) return;
+
+      const movingPiece = piece;
+      const capturedPiece = board[to.r][to.c];
+      const nextBoard = cloneBoard(board);
+      nextBoard[to.r][to.c] = movingPiece;
+      nextBoard[from.r][from.c] = null;
+
+      const nextTurn: PieceColor = movingPiece.color === 'red' ? 'black' : 'red';
+      const inCheck = isKingInCheck(nextBoard, nextTurn);
+      const moveRecord: Move = {
+        from,
+        to,
+        piece: movingPiece,
+        captured: capturedPiece || null,
+        notation: getMoveNotation(board, from, to, movingPiece),
+        isCheck: inCheck,
+      };
+
+      const newCapturedRed = [...capturedRed];
+      const newCapturedBlack = [...capturedBlack];
+      if (capturedPiece) {
+        if (movingPiece.color === 'red') newCapturedRed.push(capturedPiece);
+        else newCapturedBlack.push(capturedPiece);
+      }
+
+      let nextStatus: GameStatus = inCheck ? 'check' : 'playing';
+      let winningPlayer: PieceColor | null = null;
+      const legalReplies = getAllLegalMoves(nextBoard, nextTurn);
+      if (legalReplies.length === 0) {
+        winningPlayer = movingPiece.color;
+        nextStatus = inCheck ? 'checkmate' : 'stalemate';
+      }
+
+      if (nextStatus === 'checkmate' || nextStatus === 'stalemate') {
+        soundManager.playVictory();
+        setShowGameOverModal(true);
+      } else if (inCheck) {
+        soundManager.playCheck();
+      } else if (capturedPiece) {
+        soundManager.playCapture();
+      } else {
+        soundManager.playMove();
+      }
+
+      const newSnapshot: HistorySnapshot = {
+        board: nextBoard,
+        turn: nextTurn,
+        move: moveRecord,
+        capturedRed: newCapturedRed,
+        capturedBlack: newCapturedBlack,
+      };
+
+      const newHistory = [...history.slice(0, historyIndex + 1), newSnapshot];
+      setBoard(nextBoard);
+      setTurn(nextTurn);
+      setCapturedRed(newCapturedRed);
+      setCapturedBlack(newCapturedBlack);
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+      setGameStatus(nextStatus);
+      setWinner(winningPlayer);
+      setSelectedPos(null);
+      setValidMoves([]);
+    },
+    [board, capturedRed, capturedBlack, history, historyIndex]
+  );
+
+  // Undo back to last recognized book move
+  const handleUndoToLastBookMove = useCallback(() => {
+    for (let i = historyIndex - 1; i >= 0; i--) {
+      const subMoves = history
+        .slice(1, i + 1)
+        .map(h => h.move)
+        .filter((m): m is Move => m !== null)
+        .map(m => ({ from: m.from, to: m.to }));
+      if (getOpeningNodeForMoves(subMoves)) {
+        const snap = history[i];
+        setBoard(snap.board);
+        setTurn(snap.turn);
+        setCapturedRed(snap.capturedRed);
+        setCapturedBlack(snap.capturedBlack);
+        setHistoryIndex(i);
+        setSelectedPos(null);
+        setValidMoves([]);
+        soundManager.playTap();
+        return;
+      }
+    }
+    handleNewGame();
+  }, [history, historyIndex, handleNewGame]);
+
   // Extract all moves for MoveHistory component
   const moveList: Move[] = history
     .slice(1)
@@ -541,6 +669,22 @@ export const App: React.FC = () => {
 
             {/* Quick Actions */}
             <div className="flex items-center gap-2">
+              {/* Opening Advisor Hint Toggle */}
+              <button
+                onClick={() => setIsZenAdvisorOpen(prev => !prev)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border flex items-center gap-1.5 ${
+                  isZenAdvisorOpen
+                    ? 'bg-emerald-600/40 text-emerald-200 border-emerald-400 ring-1 ring-emerald-400'
+                    : 'bg-stone-800 hover:bg-stone-700 text-stone-200 border-stone-700/60'
+                }`}
+                title="Bật cẩm nang gợi ý khai cuộc từng nước"
+              >
+                <Lightbulb className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                <span className="hidden sm:inline">
+                  {hintMove ? `Gợi Ý: ${currentOpeningNode?.recommendedMove.notation || 'Nước Chuẩn'}` : 'Gợi Ý Khai Cuộc'}
+                </span>
+              </button>
+
               <button
                 onClick={handleNewGame}
                 className="px-2.5 py-1 rounded-lg bg-red-700/80 hover:bg-red-600 text-amber-100 flex items-center gap-1.5 text-xs font-semibold transition-all border border-red-500/50"
@@ -593,6 +737,20 @@ export const App: React.FC = () => {
             </div>
           </div>
 
+          {/* Floating Compact Opening Advisor Card in Zen Mode */}
+          {isZenAdvisorOpen && (
+            <div className="absolute top-14 z-30 animate-fade-in shadow-2xl px-2 max-w-lg w-full">
+              <OpeningAdvisor
+                currentNode={currentOpeningNode}
+                isEnabled={isAdvisorEnabled}
+                onToggleEnabled={() => setIsAdvisorEnabled(prev => !prev)}
+                onPlayMove={handlePlayOpeningMove}
+                onUndoToLastBookMove={handleUndoToLastBookMove}
+                isCompact={true}
+              />
+            </div>
+          )}
+
           {/* Centered Large Board: ONLY THE CHESSBOARD */}
           <div className="flex-1 flex items-center justify-center w-full min-h-0 py-2 overflow-hidden">
             <ChessBoard
@@ -600,6 +758,7 @@ export const App: React.FC = () => {
               selectedPos={selectedPos}
               validMoves={validMoves}
               lastMove={lastMove}
+              hintMove={hintMove}
               kingInCheckPos={kingInCheckPos}
               isFlipped={isFlipped}
               theme={settings.theme}
@@ -696,6 +855,7 @@ export const App: React.FC = () => {
                 selectedPos={selectedPos}
                 validMoves={validMoves}
                 lastMove={lastMove}
+                hintMove={hintMove}
                 kingInCheckPos={kingInCheckPos}
                 isFlipped={isFlipped}
                 theme={settings.theme}
@@ -716,8 +876,17 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Right Sidebar: Controls & Move History (5 or 4 columns on desktop) */}
+            {/* Right Sidebar: Controls, Opening Advisor & Move History (5 or 4 columns on desktop) */}
             <div className="lg:col-span-5 xl:col-span-4 flex flex-col space-y-3.5 h-full">
+              {/* Opening Advisor (Trợ Lý Khai Cuộc Từng Nước & Cây Quyết Định) */}
+              <OpeningAdvisor
+                currentNode={currentOpeningNode}
+                isEnabled={isAdvisorEnabled}
+                onToggleEnabled={() => setIsAdvisorEnabled(prev => !prev)}
+                onPlayMove={handlePlayOpeningMove}
+                onUndoToLastBookMove={handleUndoToLastBookMove}
+              />
+
               {/* Control Actions Bar */}
               <GameControls
                 canUndo={historyIndex > 0}
