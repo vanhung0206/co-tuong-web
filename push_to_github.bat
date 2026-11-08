@@ -1,8 +1,8 @@
 @echo off
 title Sync Co Tuong Web to GitHub
-cd /d "C:\Users\vhung\.gemini\antigravity\scratch\co-tuong-web"
+cd /d "%~dp0"
 echo ==============================================
-echo   DANG DONG BO CODE LEN GITHUB: vanhung0206/co-tuong-web
+echo   DANG DONG BO CODE LEN GITHUB: co-tuong-web
 echo ==============================================
 git push -u origin main
 if %ERRORLEVEL% EQU 0 (
